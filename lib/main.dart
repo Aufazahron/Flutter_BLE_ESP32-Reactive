@@ -105,9 +105,11 @@ class _MyHomePageState extends State<MyHomePage> {
           _connectedDevice = device;
           _isConnected = true;
         });
-
+        
+        await flutterReactiveBle.requestMtu(deviceId: device.id, mtu: 200);
+        
         // Delay 2 seconds before reading data
-        await Future.delayed(const Duration(seconds: 2));
+        await Future.delayed(const Duration(seconds: 1));
 
         final characteristic = QualifiedCharacteristic(
           serviceId: serviceUuid,
