@@ -1,3 +1,5 @@
+#include <SPI.h>
+#include <SD.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
@@ -5,12 +7,12 @@
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
+const int chipSelect = 5; // Pin untuk CS SD card module
 BLECharacteristic *pCharacteristic;
 BLEServer *pServer;
 BLEService *pService;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-String txString = "Hello from ESP32!";
 bool sendData = false;
 
 // Callback class for handling connections and disconnections
@@ -73,15 +75,20 @@ void setup() {
   // Start advertising
   pServer->getAdvertising()->start();
   Serial.println("Waiting for a client connection to notify...");
+  BLEDevice::setMTU(200);
+
+  // Initialize SD card
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Inisialisasi kartu SD gagal!");
+    return;
+  }
+  Serial.println("Kartu SD berhasil diinisialisasi.");
 }
 
 void loop() {
   // Notify client if connected and sendData is true
   if (deviceConnected && sendData) {
-    pCharacteristic->setValue("Hello World");
-    pCharacteristic->notify();
-    Serial.print("Sent Value: ");
-    Serial.println("Hello World");
+    sendFile("/sensor_data.csv");
     sendData = false;  // Reset sendData after sending
   }
 
@@ -97,4 +104,26 @@ void loop() {
   if (deviceConnected && !oldDeviceConnected) {
     oldDeviceConnected = deviceConnected;
   }
+}
+
+// Function to read file from SD card and send via BLE
+void sendFile(const char *filename) {
+  File file = SD.open(filename);
+  
+  if (!file) {
+    Serial.println("Gagal membuka file");
+    return;
+  }
+
+  Serial.println("Membaca dan mengirim file:");
+  
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    pCharacteristic->setValue(line.c_str());
+    pCharacteristic->notify();
+    Serial.println(line);
+    delay(1); // delay to ensure data is sent correctly
+  }
+  
+  file.close();
 }
